@@ -1,9 +1,8 @@
 import { useState, useCallback } from 'react'
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom'
 import './App.css'
 
 // ── Types ────────────────────────────────────────────────────
-type Page = 'landing' | 'questionnaire' | 'result'
-
 const MBTI_TYPES = [
   'INTJ', 'INTP', 'ENTJ', 'ENTP',
   'INFJ', 'INFP', 'ENFJ', 'ENFP',
@@ -467,33 +466,71 @@ function ResultPage({
   )
 }
 
-// ── App Shell ─────────────────────────────────────────────────
-export default function App() {
-  const [page, setPage] = useState<Page>('landing')
-  const [myMBTI, setMyMBTI] = useState<MBTIType>('INFJ')
-  const [partnerMBTI, setPartnerMBTI] = useState<MBTIType>('ENFP')
-  const [answers, setAnswers] = useState<number[]>([])
+// ── Route Components ──────────────────────────────────────────
+function LandingRoute() {
+  const navigate = useNavigate()
 
   const handleStart = useCallback((my: MBTIType, partner: MBTIType) => {
-    setMyMBTI(my); setPartnerMBTI(partner); setPage('questionnaire')
-  }, [])
+    navigate(`/quiz/${my}/${partner}`)
+  }, [navigate])
 
-  const handleComplete = useCallback((ans: number[]) => {
-    setAnswers(ans); setPage('result')
-  }, [])
+  return <LandingPage onStart={handleStart} />
+}
+
+function QuizRoute() {
+  const navigate = useNavigate()
+  const { my, partner } = useParams<{ my: string; partner: string }>()
+
+  const handleComplete = useCallback((answers: number[]) => {
+    const answersParam = answers.join(',')
+    navigate(`/result/${my}/${partner}/${answersParam}`)
+  }, [navigate, my, partner])
+
+  return <QuestionnairePage onComplete={handleComplete} />
+}
+
+function ResultRoute() {
+  const navigate = useNavigate()
+  const { my, partner, answers } = useParams<{ my: string; partner: string; answers: string }>()
 
   const handleRetry = useCallback(() => {
-    setAnswers([]); setPage('landing')
-  }, [])
+    navigate('/')
+  }, [navigate])
 
+  const answersArray = answers?.split(',').map(Number) || []
+
+  if (!my || !partner || !answers || !MBTI_TYPES.includes(my as MBTIType) || !MBTI_TYPES.includes(partner as MBTIType)) {
+    return (
+      <main className="page result" id="main-content">
+        <div className="result-inner">
+          <h2 className="result-title">链接无效</h2>
+          <p className="result-body">请返回首页重新开始测试。</p>
+          <button className="btn-primary" onClick={handleRetry}>返回首页</button>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <ResultPage
+      myMBTI={my}
+      partnerMBTI={partner}
+      answers={answersArray}
+      onRetry={handleRetry}
+    />
+  )
+}
+
+// ── App Shell ─────────────────────────────────────────────────
+export default function App() {
   return (
     <>
       <a href="#main-content" className="skip-link">跳过导航</a>
-      {page === 'landing' && <LandingPage onStart={handleStart} />}
-      {page === 'questionnaire' && <QuestionnairePage onComplete={handleComplete} />}
-      {page === 'result' && (
-        <ResultPage myMBTI={myMBTI} partnerMBTI={partnerMBTI} answers={answers} onRetry={handleRetry} />
-      )}
+      <Routes>
+        <Route path="/" element={<LandingRoute />} />
+        <Route path="/quiz/:my/:partner" element={<QuizRoute />} />
+        <Route path="/result/:my/:partner/:answers" element={<ResultRoute />} />
+      </Routes>
     </>
   )
 }
