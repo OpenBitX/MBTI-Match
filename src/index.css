@@ -1,0 +1,81 @@
+/* ── Design Tokens ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Brand palette */
+  --pink:         #FF6B9D;
+  --pink-light:   #FFB3CC;
+  --pink-pale:    #FFF0F5;
+  --pink-bg:      #FFF5F9;
+  --lavender:     #C084FC;
+  --lavender-pale:#F5EDFF;
+
+  /* Text */
+  --text-heading: #1E1123;
+  --text-body:    #7C6B7E;
+  --text-muted:   #B8A8BC;
+
+  /* Surfaces */
+  --surface:      #FFFFFF;
+  --border:       #FFE4EF;
+
+  /* Gradients */
+  --grad-cta:  linear-gradient(135deg, #FF6B9D 0%, #C084FC 100%);
+  --grad-soft: linear-gradient(135deg, #FFB3CC 0%, #E9D5FF 100%);
+  --grad-page: linear-gradient(160deg, #FFF5F9 0%, #FFFFFF 52%, #FEF5FF 100%);
+
+  /* Shadows */
+  --shadow-card: 0 4px 20px rgba(255, 107, 157, 0.09);
+  --shadow-btn:  0 8px 24px rgba(255, 107, 157, 0.30);
+  --shadow-lift: 0 12px 36px rgba(255, 107, 157, 0.42);
+
+  /* Shape */
+  --r-pill: 9999px;
+  --r-card: 20px;
+  --r-chip: 12px;
+
+  /* Typography */
+  --font-serif: 'Playfair Display', 'STSong', 'SimSun', Georgia, serif;
+  --font-sans:  'DM Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text-body);
+  background: var(--grad-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--grad-page);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+/* Skip-link for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--pink);
+  color: #fff;
+  border-radius: var(--r-chip);
+  font-size: 14px;
+  transition: top 150ms;
+}
+.skip-link:focus {
+  top: 8px;
+}

@@ -1,0 +1,499 @@
+import { useState, useCallback } from 'react'
+import './App.css'
+
+// ── Types ────────────────────────────────────────────────────
+type Page = 'landing' | 'questionnaire' | 'result'
+
+const MBTI_TYPES = [
+  'INTJ', 'INTP', 'ENTJ', 'ENTP',
+  'INFJ', 'INFP', 'ENFJ', 'ENFP',
+  'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ',
+  'ISTP', 'ISFP', 'ESTP', 'ESFP',
+] as const
+type MBTIType = (typeof MBTI_TYPES)[number]
+
+// ── Question Data ─────────────────────────────────────────────
+interface Question { id: number; tag: string; scenario: string; options: [string, string, string] }
+
+const QUESTIONS: Question[] = [
+  {
+    id: 1,
+    tag: '深夜时刻',
+    scenario: '深夜，你无缘无故感到一阵落寞。你会……',
+    options: [
+      '悄悄发一条消息给 TA，哪怕只是"我在想你"',
+      '一个人安静待着，让那种感觉自然流过',
+      '找点事情做，刷视频或者出门走走',
+    ],
+  },
+  {
+    id: 2,
+    tag: '约会时光',
+    scenario: '一个慵懒的雨天午后，你最理想的约会是……',
+    options: [
+      '在安静的咖啡馆低声聊彼此藏在心底的事',
+      '说走就走，临时开车去从未去过的地方',
+      '窝在家里，不用多说话，待在一起就很暖',
+    ],
+  },
+  {
+    id: 3,
+    tag: '心动瞬间',
+    scenario: '你们之间最让你心跳漏一拍的瞬间，最可能是……',
+    options: [
+      'TA 说出一句话，像是说进了你心里',
+      'TA 默默做了一件你从没开口说过却正好需要的事',
+      '两人一起疯，笑到完全说不出话来',
+    ],
+  },
+  {
+    id: 4,
+    tag: '情感陪伴',
+    scenario: 'TA 突然说："你知道吗，我最怕的事情是……"你的第一反应是……',
+    options: [
+      '认真听，然后鼓起勇气把自己最深的恐惧也告诉 TA',
+      '想帮 TA 解决这个问题，脑子里开始想方案',
+      '轻轻靠近 TA，什么都不说，让 TA 知道有人在',
+    ],
+  },
+  {
+    id: 5,
+    tag: '爱的细节',
+    scenario: '如果只能给 TA 一件礼物——不限价格，你会选……',
+    options: [
+      '一本亲手写满话的日记，记录你们每一个重要时刻',
+      '一张去 TA 一直想去的地方的机票，说走就走',
+      '一件 TA 曾经随口提过一次、自己早就忘了的东西',
+    ],
+  },
+  {
+    id: 6,
+    tag: '生病时刻',
+    scenario: '生病发烧，躺在床上。你最需要的是……',
+    options: [
+      'TA 陪在旁边，什么都不用做，就是不要离开',
+      'TA 帮你查症状、买药、把一切打理好',
+      'TA 发来一条长消息，说让你好好休息，TA 很担心你',
+    ],
+  },
+  {
+    id: 7,
+    tag: '冲突修复',
+    scenario: '发生了一次让两人都很受伤的争执。你……',
+    options: [
+      '很难受，想立刻道歉、想抱住 TA，哪怕错的不是你',
+      '需要一点时间冷静，但一定会回来认真谈清楚',
+      '打算用一件小事悄悄打破僵局，不正面提那次争吵',
+    ],
+  },
+  {
+    id: 8,
+    tag: '独处默契',
+    scenario: '你理想中的感情里，两个人独处时是……',
+    options: [
+      '可以完全沉默，不说话也觉得安全',
+      '总有聊不完的东西，思维不断碰撞出火花',
+      '各自做自己的事，偶尔抬头互看一眼',
+    ],
+  },
+  {
+    id: 9,
+    tag: '边界沟通',
+    scenario: 'TA 的某个习惯让你有点困扰，你会……',
+    options: [
+      '找一个轻松的时机直接说，因为说出来才是真正的尊重',
+      '先观察几次，想清楚自己的感受再开口',
+      '先试着自己适应一段时间，不想因小事起波澜',
+    ],
+  },
+  {
+    id: 10,
+    tag: '情感维护',
+    scenario: 'TA 说："我觉得我们最近有点陌生了。"你……',
+    options: [
+      '心里一紧，马上说：我们现在就去找个地方好好聊聊',
+      '认真问 TA 具体是哪些时刻让 TA 有这种感觉',
+      '说：那我们去做一件新的事情，找回当初的感觉',
+    ],
+  },
+  {
+    id: 11,
+    tag: '时间维度',
+    scenario: '你们在一起的哪个阶段，你觉得感情最值得珍惜？',
+    options: [
+      '第一年——什么都是第一次，心跳从来没平静过',
+      '三五年后——像彼此的家，坚实而深沉',
+      '说不准——每个阶段都有只属于那时候的美',
+    ],
+  },
+  {
+    id: 12,
+    tag: '依恋感知',
+    scenario: 'TA 很久没有主动联系你，你的心理活动是……',
+    options: [
+      '会想是不是自己哪里做错了，心里有点不安',
+      '会直接发消息问 TA：最近怎么了，还好吗',
+      '觉得对方可能只是很忙，给 TA 留空间，静静等',
+    ],
+  },
+  {
+    id: 13,
+    tag: '亲密本质',
+    scenario: '你觉得真正的亲密感，是……',
+    options: [
+      '可以把最不体面的一面展示给 TA 看，TA 依然留着',
+      '一起做成了某件对彼此都重要的事',
+      '哪怕分开一段时间，再见面还是那种熟悉的感觉',
+    ],
+  },
+  {
+    id: 14,
+    tag: '未来憧憬',
+    scenario: '五年后，你们最完美的日常画面是……',
+    options: [
+      '一人一杯咖啡，各自看书，阳光安静地打在我们身上',
+      '正在一起攻克某个目标或项目，累但很充实',
+      '正在某个从没去过的城市，说：下次我们去哪',
+    ],
+  },
+  {
+    id: 15,
+    tag: '感情隐喻',
+    scenario: '如果你们的感情是一首歌，你希望它是……',
+    options: [
+      '《夜曲》那样——深沉复杂，越听越有层次',
+      '《平凡之路》那样——走了很远，却一直在一起',
+      '《告白气球》那样——轻盈明亮，让人嘴角止不住上扬',
+    ],
+  },
+]
+
+// Option bonus scores [A, B, C] per question (15 questions)
+const OPTION_SCORES: [number, number, number][] = [
+  [2, 1, 0], // Q1  深夜时刻
+  [2, 1, 1], // Q2  约会时光
+  [1, 2, 1], // Q3  心动瞬间
+  [2, 1, 2], // Q4  情感陪伴
+  [1, 1, 2], // Q5  爱的细节
+  [2, 1, 1], // Q6  生病时刻
+  [2, 1, 1], // Q7  冲突修复
+  [1, 2, 1], // Q8  独处默契
+  [2, 1, 1], // Q9  边界沟通
+  [2, 1, 1], // Q10 情感维护
+  [1, 2, 2], // Q11 时间维度
+  [1, 2, 1], // Q12 依恋感知
+  [2, 1, 1], // Q13 亲密本质
+  [1, 1, 2], // Q14 未来憧憬
+  [1, 2, 1], // Q15 感情隐喻
+]
+
+// ── Compatibility Logic ───────────────────────────────────────
+function getMBTIBase(a: string, b: string): number {
+  const ei = a[0] !== b[0] ? 23 : 13
+  const ns = a[1] === b[1] ? 28 : 9
+  const tf = a[2] !== b[2] ? 24 : 15
+  const jp = a[3] !== b[3] ? 18 : 13
+  return ei + ns + tf + jp // 50–93
+}
+
+function calcScore(my: string, partner: string, answers: number[]): number {
+  const base = getMBTIBase(my, partner)
+  const scaled = 58 + Math.round(((base - 50) / 43) * 28) // 58–86
+  const questSum = answers.reduce((s, ans, i) => s + OPTION_SCORES[i][ans], 0)
+  const maxQuest = OPTION_SCORES.reduce((s, row) => s + Math.max(...row), 0)
+  const bonus = Math.round((questSum / maxQuest) * 13) // 0–13
+  return Math.min(scaled + bonus, 99)
+}
+
+function getContent(score: number, my: string, partner: string) {
+  if (score >= 90)
+    return {
+      badge: '命运之缘',
+      title: '星轨交汇，如出一辙',
+      body: `${my} 与 ${partner} 之间存在着极为罕见的灵魂共振。你们不仅在思想上彼此照应，在情感层面更有难以言说的默契。这种连接超越了普通的吸引——仿佛宇宙刻意将两颗相似而互补的灵魂，置于同一条璀璨的星轨之上。`,
+    }
+  if (score >= 80)
+    return {
+      badge: '灵魂共鸣',
+      title: '心弦拨动，余音绕梁',
+      body: `${my} 与 ${partner} 的相遇，是一种温柔而深刻的吸引。你们有着相近的内心世界，却又在某些维度形成完美的互补。在对方身上，你会发现自己未曾完整的部分——而那些差异，恰好构成了最动人的张力。`,
+    }
+  if (score >= 70)
+    return {
+      badge: '心弦拨动',
+      title: '相异成趣，渐入佳境',
+      body: `${my} 与 ${partner} 之间有着真实的吸引力，也有需要用心经营的空间。你们的差异并非阻碍——它们是让关系变得丰富而立体的原料。用好奇心代替评判去理解对方，你们之间的故事会比想象中精彩得多。`,
+    }
+  return {
+    badge: '缘起初芽',
+    title: '相遇即是序章',
+    body: `${my} 与 ${partner} 之间的连接，正处于一个充满可能性的起点。每一段深厚的感情，都始于一次真实的相遇和愿意了解对方的勇气。你们之间的故事，尚未写完。`,
+  }
+}
+
+// ── Heart Icon ────────────────────────────────────────────────
+function HeartIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M12 21C12 21 3 14.5 3 8.5C3 5.462 5.462 3 8.5 3C10.196 3 11.7 3.792 12 4.5C12.3 3.792 13.804 3 15.5 3C18.538 3 21 5.462 21 8.5C21 14.5 12 21 12 21Z"
+        fill="url(#hg)"
+      />
+      <defs>
+        <linearGradient id="hg" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FF6B9D" />
+          <stop offset="1" stopColor="#C084FC" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+// ── MBTI Pill Grid ────────────────────────────────────────────
+function MBTISelector({
+  label, value, onChange, groupId,
+}: {
+  label: string; value: string; onChange: (v: string) => void; groupId: string
+}) {
+  return (
+    <div className="mbti-sel">
+      <p className="sel-label" id={groupId}>{label}</p>
+      <div className="mbti-grid" role="radiogroup" aria-labelledby={groupId}>
+        {MBTI_TYPES.map((type) => (
+          <button
+            key={type}
+            type="button"
+            className={`type-pill${value === type ? ' type-pill--on' : ''}`}
+            role="radio"
+            aria-checked={value === type}
+            onClick={() => onChange(type)}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Landing Page ──────────────────────────────────────────────
+function LandingPage({ onStart }: { onStart: (my: MBTIType, partner: MBTIType) => void }) {
+  const [myType, setMyType] = useState('')
+  const [partnerType, setPartnerType] = useState('')
+  const ready = myType && partnerType
+
+  return (
+    <main className="page landing" id="main-content">
+      <div className="blob blob-a" />
+      <div className="blob blob-b" />
+      <div className="landing-inner">
+        <HeartIcon size={52} className="landing-icon" />
+        <h1 className="landing-title">灵魂的碰撞</h1>
+        <p className="landing-sub">探索 MBTI 背后那不可思议的灵魂磁场</p>
+
+        <div className="selectors-row">
+          <MBTISelector label="我的 MBTI" value={myType} onChange={setMyType} groupId="my-lbl" />
+          <div className="sel-divider" aria-hidden="true">
+            <HeartIcon size={20} />
+          </div>
+          <MBTISelector label="TA 的 MBTI" value={partnerType} onChange={setPartnerType} groupId="ta-lbl" />
+        </div>
+
+        <button
+          className="cta-btn"
+          disabled={!ready}
+          aria-disabled={!ready}
+          onClick={() => ready && onStart(myType as MBTIType, partnerType as MBTIType)}
+        >
+          <span>开始灵魂共鸣</span>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M3.5 9H14.5M14.5 9L10 4.5M14.5 9L10 13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <p className="landing-note">15 道情境题 · 约 3 分钟</p>
+      </div>
+    </main>
+  )
+}
+
+// ── Questionnaire Page ────────────────────────────────────────
+function QuestionnairePage({ onComplete }: { onComplete: (answers: number[]) => void }) {
+  const [currentQ, setCurrentQ] = useState(0)
+  const [answers, setAnswers] = useState<number[]>([])
+  const [selected, setSelected] = useState<number | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const total = QUESTIONS.length
+  const q = QUESTIONS[currentQ]
+  const progressPct = ((currentQ + 1) / total) * 100
+
+  const handleSelect = useCallback(
+    (idx: number) => {
+      if (busy) return
+      setSelected(idx)
+      setBusy(true)
+      setTimeout(() => {
+        const next = [...answers, idx]
+        setAnswers(next)
+        if (currentQ < total - 1) {
+          setCurrentQ((c) => c + 1)
+          setSelected(null)
+          setBusy(false)
+        } else {
+          onComplete(next)
+        }
+      }, 370)
+    },
+    [busy, answers, currentQ, total, onComplete],
+  )
+
+  return (
+    <main className="page questionnaire" id="main-content">
+      <div
+        className="progress-track"
+        role="progressbar"
+        aria-valuenow={currentQ + 1}
+        aria-valuemin={1}
+        aria-valuemax={total}
+        aria-label={`第 ${currentQ + 1} 题，共 ${total} 题`}
+      >
+        <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+      </div>
+
+      <div className="quest-inner">
+        <span className="quest-counter" aria-hidden="true">
+          {currentQ + 1} <span className="quest-sep">·</span> {total}
+        </span>
+
+        {/* key triggers re-mount animation on question change */}
+        <div key={currentQ} className="quest-card">
+          <span className="quest-tag">{q.tag}</span>
+          <p className="quest-scenario">{q.scenario}</p>
+          <div className="options-list">
+            {q.options.map((opt, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`opt-btn${selected === i ? ' opt-btn--picked' : ''}`}
+                onClick={() => handleSelect(i)}
+                disabled={busy}
+              >
+                <span className="opt-letter">{String.fromCharCode(65 + i)}</span>
+                <span className="opt-text">{opt}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="quest-rings" aria-hidden="true">
+          <div className="ring ring-1" />
+          <div className="ring ring-2" />
+        </div>
+      </div>
+    </main>
+  )
+}
+
+// ── Result Page ───────────────────────────────────────────────
+function ResultPage({
+  myMBTI, partnerMBTI, answers, onRetry,
+}: {
+  myMBTI: string; partnerMBTI: string; answers: number[]; onRetry: () => void
+}) {
+  const score = calcScore(myMBTI, partnerMBTI, answers)
+  const { badge, title, body } = getContent(score, myMBTI, partnerMBTI)
+
+  const handleShare = useCallback(() => {
+    const text = `我（${myMBTI}）与 TA（${partnerMBTI}）的灵魂契合度高达 ${score}%！${badge}——${title}`
+    if (navigator.share) {
+      navigator.share({ title: '灵魂的碰撞 · MBTI 契合度', text, url: window.location.href }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板！')).catch(() => {})
+    }
+  }, [score, badge, title, myMBTI, partnerMBTI])
+
+  return (
+    <main className="page result" id="main-content">
+      <div className="result-glow" aria-hidden="true" />
+      <div className="result-inner">
+        {/* Pair label */}
+        <div className="result-pair">
+          <span className="mbti-tag">{myMBTI}</span>
+          <HeartIcon size={18} />
+          <span className="mbti-tag">{partnerMBTI}</span>
+        </div>
+
+        {/* Score */}
+        <div className="score-wrap" aria-label={`契合度 ${score}%`}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <span
+              key={i}
+              className="dot"
+              aria-hidden="true"
+              style={{ '--angle': `${(i / 8) * 360}deg`, '--delay': `${i * 0.14}s` } as React.CSSProperties}
+            />
+          ))}
+          <span className="score-num">
+            {score}<span className="score-pct">%</span>
+          </span>
+        </div>
+
+        {/* Badge + title */}
+        <div className="result-badge">{badge}</div>
+        <h2 className="result-title">{title}</h2>
+
+        {/* Description card with gradient border */}
+        <div className="result-card-wrap">
+          <div className="result-card">
+            <p className="result-body">{body}</p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="result-actions">
+          <button className="btn-primary" onClick={handleShare}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="13" cy="3" r="1.6" stroke="currentColor" strokeWidth="1.4" />
+              <circle cx="3" cy="8" r="1.6" stroke="currentColor" strokeWidth="1.4" />
+              <circle cx="13" cy="13" r="1.6" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M5 7L11 4M5 9L11 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            分享灵魂契约
+          </button>
+          <button className="btn-ghost" onClick={onRetry}>重新探索</button>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+// ── App Shell ─────────────────────────────────────────────────
+export default function App() {
+  const [page, setPage] = useState<Page>('landing')
+  const [myMBTI, setMyMBTI] = useState<MBTIType>('INFJ')
+  const [partnerMBTI, setPartnerMBTI] = useState<MBTIType>('ENFP')
+  const [answers, setAnswers] = useState<number[]>([])
+
+  const handleStart = useCallback((my: MBTIType, partner: MBTIType) => {
+    setMyMBTI(my); setPartnerMBTI(partner); setPage('questionnaire')
+  }, [])
+
+  const handleComplete = useCallback((ans: number[]) => {
+    setAnswers(ans); setPage('result')
+  }, [])
+
+  const handleRetry = useCallback(() => {
+    setAnswers([]); setPage('landing')
+  }, [])
+
+  return (
+    <>
+      <a href="#main-content" className="skip-link">跳过导航</a>
+      {page === 'landing' && <LandingPage onStart={handleStart} />}
+      {page === 'questionnaire' && <QuestionnairePage onComplete={handleComplete} />}
+      {page === 'result' && (
+        <ResultPage myMBTI={myMBTI} partnerMBTI={partnerMBTI} answers={answers} onRetry={handleRetry} />
+      )}
+    </>
+  )
+}
